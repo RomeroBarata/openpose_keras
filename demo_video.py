@@ -1,44 +1,43 @@
 import argparse
-import cv2
 import math
+import os
+import random
 import time
-import numpy as np
-import util
-from config_reader import config_reader
-from scipy.ndimage.filters import gaussian_filter
-from model import get_testing_model
-import pickle
-import itertools
+
+import cv2
 import matplotlib
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import skvideo.io
-import skvideo
-import glob
-import os
-from tqdm import tqdm
+import numpy as np
 import pandas as pd
+from scipy.ndimage.filters import gaussian_filter
+import skvideo
+import skvideo.io
+from tqdm import tqdm
+
+from config_reader import config_reader
+from model import get_testing_model
+import util
 
 
 # find connection in the specified sequence, center 29 is in the position 15
-limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10], \
-           [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17], \
+limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10],
+           [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17],
            [1, 16], [16, 18], [3, 17], [6, 18]]
 
-# the middle joints heatmap correpondence
-mapIdx = [[31, 32], [39, 40], [33, 34], [35, 36], [41, 42], [43, 44], [19, 20], [21, 22], \
-          [23, 24], [25, 26], [27, 28], [29, 30], [47, 48], [49, 50], [53, 54], [51, 52], \
+# the middle joints heatmap correspondence
+mapIdx = [[31, 32], [39, 40], [33, 34], [35, 36], [41, 42], [43, 44], [19, 20], [21, 22],
+          [23, 24], [25, 26], [27, 28], [29, 30], [47, 48], [49, 50], [53, 54], [51, 52],
           [55, 56], [37, 38], [45, 46]]
 
 # visualize
 colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0],
-          [0, 255, 0], \
+          [0, 255, 0],
           [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255],
-          [85, 0, 255], \
+          [85, 0, 255],
           [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
 
 
-def process (input_image, params, model_params):
+def process(input_image, model, params, model_params):
     oriImg = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
     multiplier = [x * model_params['boxsize'] / oriImg.shape[0] for x in params['scale_search']]
     heatmap_avg = np.zeros((oriImg.shape[0], oriImg.shape[1], 19))
@@ -240,14 +239,15 @@ def process (input_image, params, model_params):
             canvas = cv2.addWeighted(canvas, 0.4, cur_canvas, 0.6, 0)
 
     # return canvas
-    return {'peaks':all_peaks,'canvas':canvas,'limbs_subset':subset,'limbs_candidate':candidate}
-    
+    return {'peaks': all_peaks, 'canvas': canvas, 'limbs_subset': subset, 'limbs_candidate': candidate}
+
+
 class VideoProcessor(object):
-    '''
-    Base class for a video processing unit, 
+    """
+    Base class for a video processing unit,
     implementation is required for video loading and saving
-    '''
-    def __init__(self,fname='',sname='', nframes = -1, fps = 30):
+    """
+    def __init__(self, fname='', sname='', nframes=-1, fps=30):
         self.fname = fname
         self.sname = sname
 
@@ -295,59 +295,56 @@ class VideoProcessor(object):
     
     def frame_count(self):
         return self.nframes
-        
-                       
+
     def get_video(self):
-        '''
+        """
         implement your own
-        '''
+        """
         pass
     
     def get_info(self):
-        '''
+        """
         implement your own
-        '''
+        """
         pass
 
     def create_video(self):
-        '''
+        """
         implement your own
-        '''
+        """
         pass
-    
 
-        
     def _read_frame(self):
-        '''
+        """
         implement your own
-        '''
+        """
         pass
     
-    def save_frame(self,frame):
-        '''
+    def save_frame(self, frame):
+        """
         implement your own
-        '''
+        """
         pass
     
     def close(self):
-        '''
+        """
         implement your own
-        '''
+        """
         pass
 
 
 class VideoProcessorSK(VideoProcessor):
-    '''
+    """
     Video Processor using skvideo.io
     requires sk-video in python,
     and ffmpeg installed in the operating system
-    '''
+    """
     def __init__(self, *args, **kwargs):
         super(VideoProcessorSK, self).__init__(*args, **kwargs)
-    
+
     def get_video(self):
-         return skvideo.io.FFmpegReader(self.fname)
-        
+        return skvideo.io.FFmpegReader(self.fname)
+
     def get_info(self):
         infos = skvideo.io.ffprobe(self.fname)['video']
         self.h = int(infos['@height'])
@@ -357,92 +354,133 @@ class VideoProcessorSK(VideoProcessor):
         all_frames = vshape[0]
         self.nc = vshape[3]
 
-        if self.nframes == -1 or self.nframes>all_frames:
+        if self.nframes == -1 or self.nframes > all_frames:
             self.nframes = all_frames
-            
+
     def create_video(self):
-        return skvideo.io.FFmpegWriter(self.sname, outputdict={'-r':str(self.FPS)})
+        return skvideo.io.FFmpegWriter(self.sname, outputdict={'-r': str(self.FPS)})
 
     def _read_frame(self):
         return self.vid._readFrame()
-    
-    def save_frame(self,frame):
+
+    def save_frame(self, frame):
         self.svid.writeFrame(frame)
-    
+
     def close(self):
         self.svid.close()
         self.vid.close()
 
 
-    
-input_path = './video_data'
-keras_weights_file='./model/keras/model.h5'
-
-videos = np.sort([fn for fn in glob.glob(input_path+'/*') if "Labeled" not in fn])
-print('filenames:')
-print(videos)
-
-
-print('start processing...')
-
-# load model
-model = get_testing_model()
-model.load_weights(keras_weights_file)
-# load config
-params, model_params = config_reader()
-
-# os.chdir(input_path)
-for ivid,vid in enumerate(videos):
+def _export_single_video_skeletons(video_filepath, skeletons_save_dir, model_data):
     tic = time.time()
+    video_id = os.path.basename(video_filepath).split(sep='.')[0]
+    clip = VideoProcessorSK(fname=video_filepath,
+                            sname=os.path.join(skeletons_save_dir, f'{video_id}.mp4'))
+    ny = clip.height()
+    nx = clip.width()
+    fps = clip.fps()
+    num_frames = clip.frame_count()
+    duration = num_frames / fps
+    model = model_data['model']
+    params = model_data['params']
+    model_params = model_data['model_params']
+    print("Duration of video [s]: ", duration, ", recorded with ", fps, "fps!")
+    print("Overall # of frames: ", num_frames, "with frame dimensions: ", ny, nx)
     df = pd.DataFrame()
-    print(vid)
-    vidname = os.path.basename(vid)
-    vname = vidname.split('.')[0]
-    
-    print('vidname')
-    print(vidname)
-    print('vname')
-    print(vname)
-    
-    if os.path.isfile(os.path.join(input_path,vname + '_openposeLabeled.mp4')):
-        print("Labeled video already created.")
-    else:
-        # break into frames
-        clip = VideoProcessorSK(fname = os.path.join(input_path,vidname),sname = os.path.join(input_path,vname + '_openposeLabeled.mp4'))# input name, output name
-        ny = clip.height()
-        nx = clip.width()
-        fps = clip.fps()
-        nframes = clip.frame_count()
-        duration = nframes/fps
-        print("Duration of video [s]: ", duration, ", recorded with ", fps,
-              "fps!")
-        print("Overall # of frames: ", nframes, "with frame dimensions: ",
-              ny,nx)
-        print("Generating frames")
+    for index in tqdm(range(num_frames)):
+        input_image = clip.load_frame()
+        try:
+            output_dict = process(input_image, model, params, model_params)
+            frame = output_dict['canvas']
+            del output_dict['canvas']
+            output_dict.update({'video': video_id, 'frame': index})
+            output_df = pd.DataFrame(pd.Series(output_dict)).transpose()
+            df = df.append(output_df)
+            clip.save_frame(frame)
+        except:
+            print(f'Error during pose estimation of video {video_id}')
+    clip.close()
+    df.to_pickle(os.path.join(skeletons_save_dir, f'{video_id}.pkl'))
+    toc = time.time()
+    print(f'Processing video {video_id} took %.5f' % (toc - tic))
 
 
-        for index in tqdm(range(nframes)):
+def export_single_video_skeletons(args):
+    # Model Info Loading
+    keras_weights_file = './model/keras/model.h5'
+    model = get_testing_model()
+    model.load_weights(keras_weights_file)
+    params, model_params = config_reader()
+    model_data = {'model': model, 'params': params, 'model_params': model_params}
+    # Process video
+    video_filepath = args.video
+    save_root_dir = args.save_root_dir
+    video_id = os.path.basename(video_filepath).split(sep='.')[0]
+    skeletons_save_dir = os.path.join(save_root_dir, video_id)
+    os.makedirs(skeletons_save_dir, exist_ok=True)
+    _export_single_video_skeletons(video_filepath, skeletons_save_dir, model_data)
 
-            input_image = clip.load_frame()
-            try:
-                output_dict = process(input_image, params, model_params) 
-                frame = output_dict['canvas']
-                del output_dict['canvas']
-                output_dict.update({'video':vname, 'frame':index})
-                # convert to df
-                output_df = pd.DataFrame(pd.Series(output_dict)).transpose()
-                df = df.append(output_df)
-                clip.save_frame(frame)
-                #save in json
 
-            except:
-                print('error during pose estimation')
+def export_multiple_videos_skeletons(args):
+    # Model Info Loading
+    keras_weights_file = './model/keras/model.h5'
+    model = get_testing_model()
+    model.load_weights(keras_weights_file)
+    params, model_params = config_reader()
+    model_data = {'model': model, 'params': params, 'model_params': model_params}
+    # Process Videos
+    videos_root_dir = args.videos_root_dir
+    video_files = sorted(os.listdir(videos_root_dir))
+    if args.parallel:
+        random.shuffle(video_files)
+    save_root_dir = args.save_root_dir
+    for video_file in video_files:
+        video_id = video_file.split(sep='.')[0]
+        skeletons_save_dir = os.path.join(save_root_dir, video_id)
+        parallel_and_folder_exists = args.parallel and os.path.exists(skeletons_save_dir)
+        folder_exists_and_files_exist = os.path.exists(skeletons_save_dir) and len(os.listdir(skeletons_save_dir)) >= 2
+        if parallel_and_folder_exists or folder_exists_and_files_exist:
+            print(f'Already processed video {video_id}. Skipping it.')
+            continue
+        os.makedirs(skeletons_save_dir, exist_ok=True)
+        video_filepath = os.path.join(videos_root_dir, video_file)
+        _export_single_video_skeletons(video_filepath, skeletons_save_dir, model_data)
 
-        # combine into video
-        clip.close()
-        df.to_pickle(os.path.join(input_path,vname)+'.pkl')
-        toc = time.time()
-        print ('processing time is %.5f' % (toc - tic))
-    
-os.chdir('../')
 
+def create_arg_parser():
+    parser = argparse.ArgumentParser(description='Run OpenPose on videos to extract skeletons.')
+
+    subparsers = parser.add_subparsers(title='sub-commands', description='Valid sub-commands.')
+
+    parser_single_video = subparsers.add_parser('single_video', help='Extract skeletons for a single video.')
+    parser_single_video.add_argument('--video', type=str,
+                                     help='Path to video file.')
+    parser_single_video.add_argument('--save_root_dir', type=str,
+                                     help='Root directory to save extracted skeletons. A subdirectory, based on '
+                                          'video ID extracted from input video name, is created and skeleton data '
+                                          'is saved in it.')
+    parser_single_video.set_defaults(func=export_single_video_skeletons)
+
+    parser_multiple_videos = subparsers.add_parser('multiple_videos', help='Extract skeletons for multiple videos.')
+    parser_multiple_videos.add_argument('--videos_root_dir', type=str,
+                                        help='Directory containing video files.')
+    parser_multiple_videos.add_argument('--save_root_dir', type=str,
+                                        help='Root directory to save extracted features. Creates a sub-directory '
+                                             'per video to be processed.')
+    parser_multiple_videos.add_argument('--parallel', action='store_true',
+                                        help='If specified, randomize extraction order and only check for save folder '
+                                             'existence. Run this script multiple times with this flag enabled '
+                                             'and you get something akin to parallelism.')
+    parser_multiple_videos.set_defaults(func=export_multiple_videos_skeletons)
+
+    return parser
+
+
+def main():
+    arg_parser = create_arg_parser()
+    args = arg_parser.parse_args()
+    args.func(args)
+
+
+if __name__ == '__main__':
+    main()
