@@ -375,7 +375,7 @@ def _export_single_video_skeletons(video_filepath, skeletons_save_dir, model_dat
     tic = time.time()
     video_id = os.path.basename(video_filepath).split(sep='.')[0]
     clip = VideoProcessorSK(fname=video_filepath,
-                            sname=os.path.join(skeletons_save_dir, f'{video_id}.mp4'))
+                            sname=os.path.join(skeletons_save_dir, f'{video_id}_openpose.mp4'))
     ny = clip.height()
     nx = clip.width()
     fps = clip.fps()
