@@ -1,6 +1,24 @@
+### About the `parallel` branch
+This branch makes the `demo_video.py` script more user-friendly. You can either specify a single video for 
+skeleton detection `python demo_video.py single_video --help` or a directory containing multiple videos 
+`python demo_video.py multiple_videos --help`.
+
+We call this branch `parallel`, but the code is not truly parallel. The only advantage is that you can call the 
+`multiple_videos` sub-option many times and the code will work out which videos to skip (e.g. when another process is extracting 
+the skeletons for a video or when the skeletons have already been extracted).
+
+The easiest way to get started here is to install the provided `anaconda` environment.
+```bash
+conda env create -f environment.yml
+conda activate openpose_keras
+```
+
+Then, follow the original instructions to get the model's weights in the correct directory. After having everything setup, 
+just run the `demo_video.py` script as mentioned at the beginning of this section.
+
 ### About this fork
 
- This repo was forked from the [Anatolix fork](https://github.com/anatolix/keras_Realtime_Multi-Person_Pose_Estimation) of [Realtime Multi-Person Pose Estimation](https://github.com/ZheC/Realtime_Multi-Person_Pose_Estimation).
+This repo was forked from the [Anatolix fork](https://github.com/anatolix/keras_Realtime_Multi-Person_Pose_Estimation) of [Realtime Multi-Person Pose Estimation](https://github.com/ZheC/Realtime_Multi-Person_Pose_Estimation).
 
 For keras version of original [Realtime Multi-Person Pose Estimation](https://github.com/ZheC/Realtime_Multi-Person_Pose_Estimation) repository, see the [Michal Faber fork](https://github.com/michalfaber/keras_Realtime_Multi-Person_Pose_Estimation) and the [Anatolix fork](https://github.com/anatolix/keras_Realtime_Multi-Person_Pose_Estimation)
 
@@ -78,4 +96,3 @@ Please cite the paper in your publications if it helps your research:
       booktitle = {The IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
       year = {2017}
       }
-	  
